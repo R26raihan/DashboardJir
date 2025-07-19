@@ -1,0 +1,144 @@
+.login-container {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  height: 100vh;
+  position: relative;
+  overflow: hidden;
+}
+
+.login-container::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  background: linear-gradient(135deg, #e85c3a, #3a4a62, #e85c3a, #3a4a62);
+  background-size: 300% 300%;
+  opacity: 0.82;
+  animation: gradientMove 8s ease-in-out infinite alternate;
+}
+
+@keyframes gradientMove {
+  0% {
+    background-position: 0% 50%;
+  }
+  50% {
+    background-position: 100% 50%;
+  }
+  100% {
+    background-position: 0% 50%;
+  }
+}
+
+.login-container::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  background: url('../assets/images/pexels-alifiaharina-2893670.jpg') center center/cover no-repeat;
+  opacity: 1;
+}
+
+.login-card {
+  background: #fff;
+  padding: 3.2rem 2.2rem 2.2rem 2.2rem;
+  border-radius: 22px;
+  width: 100%;
+  max-width: 410px;
+  box-shadow: 0 10px 40px 0 rgba(58, 74, 98, 0.18);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  position: relative;
+  z-index: 2;
+  border: 1.5px solid #f2eaea;
+  transition: box-shadow 0.2s, border 0.2s;
+}
+
+.vue-logo {
+    width: 30%;
+    max-width: 300px;
+    min-width: 200px;
+    margin-bottom: 2.2rem;
+    margin-top: -0.5rem;
+    transition: width 0.2s;
+  }
+  
+
+.welcome-title {
+  text-align: center;
+  margin-bottom: 1.7rem;
+  color: #3a4a62;
+  font-weight: 700;
+  letter-spacing: 1px;
+  font-size: 1.6rem;
+}
+
+.login-form {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 1.2rem;
+}
+
+.input-group {
+  display: flex;
+  align-items: center;
+  background: #f7f7f7;
+  border: 1.5px solid #e85c3a;
+  border-radius: 8px;
+  box-shadow: 0 1px 6px rgba(58, 74, 98, 0.08);
+  padding: 0 12px;
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+.input-group:focus-within {
+  border-color: #3a4a62;
+  box-shadow: 0 2px 12px rgba(58, 74, 98, 0.13);
+}
+
+.input-icon {
+  display: flex;
+  align-items: center;
+  margin-right: 10px;
+  color: #3a4a62;
+  opacity: 0.8;
+}
+
+.login-input {
+  flex: 1;
+  border: none;
+  outline: none;
+  background: transparent;
+  font-size: 1.08rem;
+  padding: 14px 0;
+  color: #3a4a62;
+  font-weight: 500;
+  letter-spacing: 0.2px;
+  transition: background 0.2s;
+}
+.login-input::placeholder {
+  color: #b0b8c1;
+  opacity: 1;
+}
+.login-input:focus {
+  background: #f0f4f8;
+}
+
+.login-button {
+  width: 100%;
+  padding: 13px;
+  background: linear-gradient(90deg, #e85c3a 60%, #3a4a62 100%);
+  color: #fff;
+  border: none;
+  border-radius: 8px;
+  font-weight: bold;
+  font-size: 1.12rem;
+  cursor: pointer;
+  box-shadow: 0 2px 12px rgba(58, 74, 98, 0.10);
+  transition: background 0.2s, transform 0.1s;
+  margin-top: 0.7rem;
+}
+.login-button:hover {
+  background: linear-gradient(90deg, #3a4a62 60%, #e85c3a 100%);
+  transform: translateY(-2px) scale(1.04);
+}

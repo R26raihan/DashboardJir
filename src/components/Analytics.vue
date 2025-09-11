@@ -123,6 +123,12 @@
       </div>
       <div class="analytics-table-section">
         <h3>Data Mentah</h3>
+        <div class="status-legend">
+          <span class="legend-item"><span class="status-badge ringan"></span> <b>Ringan</b>: ≤ 100</span>
+          <span class="legend-item"><span class="status-badge sedang"></span> <b>Sedang</b>: 101–200</span>
+          <span class="legend-item"><span class="status-badge ramai"></span> <b>Ramai</b>: 201–400</span>
+          <span class="legend-item"><span class="status-badge padat"></span> <b>Padat</b>: > 400</span>
+        </div>
         <div class="analytics-table-scroll">
           <table class="analytics-table">
             <thead>
@@ -139,7 +145,10 @@
                 <td>{{ row.id }}</td>
                 <td>{{ row.location }}</td>
                 <td>{{ row.count }}</td>
-                <td>{{ row.status }}</td>
+                <td>
+                  <span class="status-badge" :class="statusBadgeClass(row.status)"></span>
+                  <span class="status-text">{{ row.status }}</span>
+                </td>
                 <td>{{ formatDate(row.timestamp) }}</td>
               </tr>
             </tbody>
@@ -464,6 +473,14 @@ const pieOptions = {
     title: { display: false }
   }
 }
+
+function statusBadgeClass(s) {
+  const t = (s || '').toLowerCase()
+  if (t.includes('padat')) return 'padat'
+  if (t.includes('ramai')) return 'ramai'
+  if (t.includes('sedang')) return 'sedang'
+  return 'ringan'
+}
 </script>
 
 <style scoped>
@@ -558,4 +575,12 @@ const pieOptions = {
   color: var(--logo-text);
   font-weight: 600;
 }
+.status-legend { display:flex; gap:16px; align-items:center; margin: 8px 0 6px 0; flex-wrap:wrap; }
+.legend-item { display:flex; align-items:center; gap:8px; color:#586780; }
+.status-badge { padding: 4px 10px; border-radius: 999px; font-weight: 700; font-size: 0.8rem; }
+.status-badge.ringan { background: #e9f7ef; color: #1d7a49; border: 1px solid #c6ebd5; }
+.status-badge.sedang { background: #fff7e6; color: #a15c00; border: 1px solid #ffe0a3; }
+.status-badge.ramai  { background: #eaf3ff; color: #0b5ed7; border: 1px solid #bcd8ff; }
+.status-badge.padat  { background: #fff0f0; color: #b12b2b; border: 1px solid #ffd0d0; }
+.status-text { margin-left: 8px; font-weight: 600; color:#3a4a62; text-transform: capitalize; }
 </style> 

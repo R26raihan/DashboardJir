@@ -68,15 +68,6 @@
         <span v-if="loading">Loading...</span>
         <span v-else>Login dengan Google</span>
       </button>
-      
-      <!-- Sign Up Link -->
-      <div class="signup-link">
-        <p>Belum punya akun? 
-          <a href="#" @click.prevent="toggleMode">
-            {{ isSignUp ? 'Login' : 'Daftar' }}
-          </a>
-        </p>
-      </div>
     </div>
   </div>
 </template>

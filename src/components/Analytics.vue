@@ -1,158 +1,215 @@
 <template>
   <div class="analytics-container">
-    <div v-if="loading" class="analytics-loading">Loading data...</div>
-    <div v-else-if="error" class="analytics-error">{{ error }}</div>
+    <div class="section-header">
+      <div class="section-title">
+        <h2>Crowd Analytics</h2>
+        <div class="section-subtitle">Analisis data crowd monitoring • Total {{ data.length }} records</div>
+      </div>
+      <div class="section-actions">
+        <button class="btn-outline" @click="refreshData" :disabled="loading">Refresh</button>
+        <button class="btn-primary" @click="exportCSV" :disabled="!data.length">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
+            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" stroke="currentColor" stroke-width="2"/>
+            <polyline points="14,2 14,8 20,8" stroke="currentColor" stroke-width="2"/>
+            <line x1="16" y1="13" x2="8" y2="13" stroke="currentColor" stroke-width="2"/>
+            <line x1="16" y1="17" x2="8" y2="17" stroke="currentColor" stroke-width="2"/>
+          </svg>
+          Export CSV
+        </button>
+      </div>
+    </div>
+
+    <div v-if="loading" class="loading-state">
+      <div class="skeleton" style="height:200px; border-radius:12px"></div>
+    </div>
+    <div v-else-if="error" class="error-message">{{ error }}</div>
     <div v-else>
-      <div class="analytics-summary">
-        <div>
-          <strong>Total Data:</strong> {{ data.length }} records
+      <!-- Summary Cards -->
+      <div class="summary-cards">
+        <div class="summary-card">
+          <div class="card-value">{{ data.length }}</div>
+          <div class="card-label">Total Records</div>
         </div>
-        <div v-if="data.length">
-          <strong>Periode:</strong> {{ formatDate(data[0].timestamp) }} - {{ formatDate(data[data.length-1].timestamp) }}
+        <div class="summary-card">
+          <div class="card-value">{{ avgCrowd }}</div>
+          <div class="card-label">Rata-rata Crowd</div>
         </div>
-      </div>
-      <div class="analytics-stats">
-        <div><strong>Rata-rata Crowd:</strong> {{ avgCrowd }}</div>
-        <div><strong>Min Crowd:</strong> {{ minCrowd }}</div>
-        <div><strong>Max Crowd:</strong> {{ maxCrowd }}</div>
-        <div><strong>Total Crowd:</strong> {{ totalCrowd }}</div>
-        <div><strong>Jam Tersibuk:</strong> {{ peakTime }}</div>
-        <div><strong>Standar Deviasi:</strong> {{ stdDevCrowd }}</div>
-      </div>
-      <button class="export-btn" @click="exportCSV">Export CSV</button>
-      <div class="analytics-charts">
-        <div class="chart-card">
-          <h3>Tren Jumlah Crowd (Moving Average)</h3>
-          <Line :data="movingAvgLineData" :options="chartOptions" />
+        <div class="summary-card">
+          <div class="card-value">{{ maxCrowd }}</div>
+          <div class="card-label">Max Crowd</div>
         </div>
-        <div class="chart-card">
-          <h3>Distribusi Crowd (Bar)</h3>
-          <Bar :data="barChartData" :options="chartOptions" />
-        </div>
-        <div class="chart-card">
-          <h3>Persentase Crowd (Pie)</h3>
-          <Pie :data="pieChartData" :options="pieOptions" />
+        <div class="summary-card">
+          <div class="card-value">{{ totalCrowd }}</div>
+          <div class="card-label">Total Crowd</div>
         </div>
       </div>
-      <div class="analytics-charts">
-        <div class="chart-card">
-          <h3>Tren Crowd per Lokasi</h3>
-          <Line :data="perLocationLineData" :options="chartOptions" />
+
+      <!-- Additional Stats -->
+      <div class="stats-grid">
+        <div class="stat-item">
+          <span class="stat-label">Min Crowd:</span>
+          <span class="stat-value">{{ minCrowd }}</span>
         </div>
-        <div class="chart-card">
-          <h3>Distribusi Status Crowd</h3>
-          <Pie :data="statusPieData" :options="pieOptions" />
+        <div class="stat-item">
+          <span class="stat-label">Standar Deviasi:</span>
+          <span class="stat-value">{{ stdDevCrowd }}</span>
         </div>
-      </div>
-      <div class="analytics-charts">
-        <div class="chart-card">
-          <h3>Rata-rata Crowd per Jam</h3>
-          <Bar :data="avgPerHourBarData" :options="chartOptions" />
+        <div class="stat-item">
+          <span class="stat-label">Jam Tersibuk:</span>
+          <span class="stat-value">{{ peakTime }}</span>
         </div>
-        <div class="chart-card">
-          <h3>Distribusi Crowd per Hari</h3>
-          <Bar :data="avgPerDayBarData" :options="chartOptions" />
-        </div>
-        <div class="chart-card">
-          <h3>Heatmap Crowd per Jam/Hari</h3>
-          <canvas ref="heatmapCanvas" width="320" height="220"></canvas>
+        <div class="stat-item" v-if="data.length">
+          <span class="stat-label">Periode:</span>
+          <span class="stat-value">{{ formatDate(data[0].timestamp) }} - {{ formatDate(data[data.length-1].timestamp) }}</span>
         </div>
       </div>
-      <div class="analytics-table-section">
-        <h3>Ranking Lokasi Teramai</h3>
-        <table class="analytics-table">
-          <thead>
-            <tr>
-              <th>Ranking</th>
-              <th>Lokasi</th>
-              <th>Total Crowd</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr v-for="(loc, i) in rankingLokasi" :key="loc.location">
-              <td>{{ i+1 }}</td>
-              <td>{{ loc.location }}</td>
-              <td>{{ loc.total }}</td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
-      <div class="analytics-table-section">
-        <h3>Summary per Lokasi</h3>
-        <table class="analytics-table">
-          <thead>
-            <tr>
-              <th>Lokasi</th>
-              <th>Rata-rata</th>
-              <th>Min</th>
-              <th>Max</th>
-              <th>Total</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr v-for="loc in locationStats" :key="loc.location">
-              <td>{{ loc.location }}</td>
-              <td>{{ loc.avg }}</td>
-              <td>{{ loc.min }}</td>
-              <td>{{ loc.max }}</td>
-              <td>{{ loc.total }}</td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
-      <div class="analytics-table-section">
-        <h3>Deteksi Lonjakan Crowd</h3>
-        <table class="analytics-table">
-          <thead>
-            <tr>
-              <th>Waktu</th>
-              <th>Lokasi</th>
-              <th>Jumlah</th>
-              <th>Lonjakan (%)</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr v-for="row in spikes" :key="row.timestamp + row.location">
-              <td>{{ formatDate(row.timestamp) }}</td>
-              <td>{{ row.location }}</td>
-              <td>{{ row.count }}</td>
-              <td>{{ row.spike }}</td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
-      <div class="analytics-table-section">
-        <h3>Data Mentah</h3>
-        <div class="status-legend">
-          <span class="legend-item"><span class="status-badge ringan"></span> <b>Ringan</b>: ≤ 100</span>
-          <span class="legend-item"><span class="status-badge sedang"></span> <b>Sedang</b>: 101–200</span>
-          <span class="legend-item"><span class="status-badge ramai"></span> <b>Ramai</b>: 201–400</span>
-          <span class="legend-item"><span class="status-badge padat"></span> <b>Padat</b>: > 400</span>
+      <!-- Charts Section -->
+      <div class="charts-section">
+        <h3>Visualisasi Data</h3>
+        <div class="charts-grid">
+          <div class="chart-card">
+            <h4>Tren Jumlah Crowd (Moving Average)</h4>
+            <Line :data="movingAvgLineData" :options="chartOptions" />
+          </div>
+          <div class="chart-card">
+            <h4>Distribusi Crowd (Bar)</h4>
+            <Bar :data="barChartData" :options="chartOptions" />
+          </div>
+          <div class="chart-card">
+            <h4>Persentase Crowd (Pie)</h4>
+            <Pie :data="pieChartData" :options="pieOptions" />
+          </div>
+          <div class="chart-card">
+            <h4>Tren Crowd per Lokasi</h4>
+            <Line :data="perLocationLineData" :options="chartOptions" />
+          </div>
+          <div class="chart-card">
+            <h4>Distribusi Status Crowd</h4>
+            <Pie :data="statusPieData" :options="pieOptions" />
+          </div>
+          <div class="chart-card">
+            <h4>Rata-rata Crowd per Jam</h4>
+            <Bar :data="avgPerHourBarData" :options="chartOptions" />
+          </div>
+          <div class="chart-card">
+            <h4>Distribusi Crowd per Hari</h4>
+            <Bar :data="avgPerDayBarData" :options="chartOptions" />
+          </div>
+          <div class="chart-card">
+            <h4>Heatmap Crowd per Jam/Hari</h4>
+            <canvas ref="heatmapCanvas" width="320" height="220"></canvas>
+          </div>
         </div>
-        <div class="analytics-table-scroll">
-          <table class="analytics-table">
-            <thead>
-              <tr>
-                <th>ID</th>
-                <th>Lokasi</th>
-                <th>Jumlah</th>
-                <th>Status</th>
-                <th>Waktu</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr v-for="row in data" :key="row.id">
-                <td>{{ row.id }}</td>
-                <td>{{ row.location }}</td>
-                <td>{{ row.count }}</td>
-                <td>
-                  <span class="status-badge" :class="statusBadgeClass(row.status)"></span>
-                  <span class="status-text">{{ row.status }}</span>
-                </td>
-                <td>{{ formatDate(row.timestamp) }}</td>
-              </tr>
-            </tbody>
-          </table>
+      </div>
+      <!-- Tables Section -->
+      <div class="tables-section">
+        <h3>Analisis Detail</h3>
+        
+        <div class="table-card">
+          <h4>Ranking Lokasi Teramai</h4>
+          <div class="table-container">
+            <table class="data-table">
+              <thead>
+                <tr>
+                  <th>Ranking</th>
+                  <th>Lokasi</th>
+                  <th>Total Crowd</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr v-for="(loc, i) in rankingLokasi" :key="loc.location">
+                  <td><span class="rank-badge">{{ i+1 }}</span></td>
+                  <td>{{ loc.location }}</td>
+                  <td><strong>{{ loc.total }}</strong></td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <div class="table-card">
+          <h4>Summary per Lokasi</h4>
+          <div class="table-container">
+            <table class="data-table">
+              <thead>
+                <tr>
+                  <th>Lokasi</th>
+                  <th>Rata-rata</th>
+                  <th>Min</th>
+                  <th>Max</th>
+                  <th>Total</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr v-for="loc in locationStats" :key="loc.location">
+                  <td>{{ loc.location }}</td>
+                  <td>{{ loc.avg }}</td>
+                  <td>{{ loc.min }}</td>
+                  <td>{{ loc.max }}</td>
+                  <td><strong>{{ loc.total }}</strong></td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- <div class="table-card" v-if="spikes.length">
+          <h4>Deteksi Lonjakan Crowd</h4>
+          <div class="table-container">
+            <table class="data-table">
+              <thead>
+                <tr>
+                  <th>Waktu</th>
+                  <th>Lokasi</th>
+                  <th>Jumlah</th>
+                  <th>Lonjakan (%)</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr v-for="row in spikes" :key="row.timestamp + row.location">
+                  <td>{{ formatDate(row.timestamp) }}</td>
+                  <td>{{ row.location }}</td>
+                  <td>{{ row.count }}</td>
+                  <td><span class="spike-badge">{{ row.spike }}</span></td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div> -->
+
+        <div class="table-card">
+          <h4>Data Mentah</h4>
+          <div class="status-legend">
+            <span class="legend-item"><span class="status-badge ringan"></span> <b>Ringan</b>: ≤ 100</span>
+            <span class="legend-item"><span class="status-badge sedang"></span> <b>Sedang</b>: 101–200</span>
+            <span class="legend-item"><span class="status-badge ramai"></span> <b>Ramai</b>: 201–400</span>
+            <span class="legend-item"><span class="status-badge padat"></span> <b>Padat</b>: > 400</span>
+          </div>
+          <div class="table-container scrollable">
+            <table class="data-table">
+              <thead>
+                <tr>
+                  <th>ID</th>
+                  <th>Lokasi</th>
+                  <th>Jumlah</th>
+                  <th>Status</th>
+                  <th>Waktu</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr v-for="row in data" :key="row.id">
+                  <td>{{ row.id }}</td>
+                  <td>{{ row.location }}</td>
+                  <td>{{ row.count }}</td>
+                  <td>
+                    <span class="status-badge" :class="statusBadgeClass(row.status)"></span>
+                    <span class="status-text">{{ row.status }}</span>
+                  </td>
+                  <td>{{ formatDate(row.timestamp) }}</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
         </div>
       </div>
     </div>
@@ -190,7 +247,7 @@ const loading = ref(true)
 const error = ref('')
 const data = ref([])
 
-onMounted(async () => {
+async function refreshData() {
   loading.value = true
   const res = await fetchCrowdHistory()
   if (res.error) {
@@ -201,6 +258,10 @@ onMounted(async () => {
   loading.value = false
   await nextTick()
   drawHeatmap()
+}
+
+onMounted(async () => {
+  await refreshData()
 })
 watch(data, () => nextTick(drawHeatmap))
 
@@ -485,102 +546,345 @@ function statusBadgeClass(s) {
 
 <style scoped>
 .analytics-container {
-  margin-top: 32px;
-  background: var(--logo-bg);
-  border-radius: 18px;
-  box-shadow: 0 2px 16px rgba(58,74,98,0.08);
-  padding: 32px 24px;
-  color: var(--logo-text);
-}
-.analytics-loading, .analytics-error {
-  text-align: center;
-  font-size: 1.1rem;
-  color: #e85c3a;
-  margin: 32px 0;
-}
-.analytics-summary {
-  display: flex;
-  gap: 32px;
+  background: #fff;
+  border-radius: 16px;
+  box-shadow: 0 2px 14px rgba(58,74,98,.06);
+  padding: 24px;
   margin-bottom: 24px;
-  font-size: 1.08rem;
-  color: var(--logo-text);
 }
-.analytics-stats {
+
+/* Section Header */
+.section-header {
   display: flex;
-  gap: 32px;
-  margin-bottom: 24px;
-  font-size: 1.08rem;
-  color: var(--logo-text);
-  flex-wrap: wrap;
-}
-.export-btn {
-  background: #e85c3a;
-  color: #fff;
-  border: none;
-  border-radius: 6px;
-  padding: 8px 18px;
-  font-weight: 600;
-  font-size: 1rem;
-  margin-bottom: 24px;
-  cursor: pointer;
-  box-shadow: 0 1px 4px rgba(58,74,98,0.08);
-  transition: background 0.2s;
-}
-.export-btn:hover {
-  background: #3a4a62;
-}
-.analytics-charts {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 32px;
+  align-items: center;
   justify-content: space-between;
+  margin-bottom: 24px;
 }
-.chart-card {
-  flex: 1 1 320px;
-  min-width: 280px;
-  max-width: 420px;
-  background: var(--logo-gray);
-  border-radius: 14px;
-  box-shadow: 0 1px 8px rgba(58,74,98,0.07);
-  padding: 18px 16px 12px 16px;
-  margin-bottom: 18px;
-  color: var(--logo-text);
+
+.section-title h2 {
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: #2f3b4e;
+  margin: 0 0 4px 0;
 }
-.chart-card h3 {
-  font-size: 1.08rem;
+
+.section-subtitle {
+  color: #6a7890;
+  font-size: 0.9rem;
+}
+
+.section-actions {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+}
+
+/* Buttons */
+.btn-outline { 
+  border: 1px solid #d5dbe7; 
+  background: #fff; 
+  color: #3a4a62; 
+  padding: 8px 12px; 
+  border-radius: 8px; 
+  cursor: pointer; 
+  font-size: 0.9rem; 
+  transition: all 0.2s;
+}
+
+.btn-outline:disabled { 
+  opacity: 0.6; 
+  cursor: not-allowed; 
+}
+
+.btn-outline:hover:not(:disabled) { 
+  background: #f8fafc; 
+  border-color: #c1c9d2; 
+}
+
+.btn-primary {
+  background: #1976d2;
+  color: white;
+  border: none;
+  padding: 8px 12px;
+  border-radius: 8px;
   font-weight: 600;
-  margin-bottom: 12px;
-  color: var(--logo-accent);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  transition: background 0.2s;
+  font-size: 0.9rem;
 }
-.analytics-table-section {
+
+.btn-primary:hover:not(:disabled) {
+  background: #1565c0;
+}
+
+.btn-primary:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+/* Loading and Error States */
+.loading-state {
+  margin: 20px 0;
+}
+
+.skeleton { 
+  background: linear-gradient(90deg, #f3f6fb 25%, #eef2f7 37%, #f3f6fb 63%); 
+  background-size: 400% 100%; 
+  animation: shimmer 1.4s ease infinite; 
+}
+
+@keyframes shimmer { 
+  0% { background-position: 100% 0 } 
+  100% { background-position: -100% 0 } 
+}
+
+.error-message { 
+  color: #e85c3a; 
+  background: #fff5f5; 
+  padding: 12px; 
+  border-radius: 8px; 
+  border: 1px solid #fed7d7; 
+  text-align: center;
+}
+
+/* Summary Cards */
+.summary-cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 16px;
+  margin-bottom: 24px;
+}
+
+.summary-card {
+  background: #f8fafc;
+  border: 1px solid #e8edf5;
+  border-radius: 12px;
+  padding: 20px;
+  text-align: center;
+}
+
+.card-value {
+  font-size: 2rem;
+  font-weight: 700;
+  color: #1976d2;
+  margin-bottom: 4px;
+}
+
+.card-label {
+  font-size: 0.9rem;
+  color: #6a7890;
+  font-weight: 500;
+}
+
+/* Stats Grid */
+.stats-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+  gap: 16px;
+  margin-bottom: 32px;
+}
+
+.stat-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12px 16px;
+  background: #f8fafc;
+  border: 1px solid #e8edf5;
+  border-radius: 8px;
+}
+
+.stat-label {
+  color: #6a7890;
+  font-size: 0.9rem;
+}
+
+.stat-value {
+  font-weight: 600;
+  color: #2f3b4e;
+}
+
+/* Charts Section */
+.charts-section {
+  margin-bottom: 32px;
+}
+
+.charts-section h3 {
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: #2f3b4e;
+  margin-bottom: 20px;
+}
+
+.charts-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
+  gap: 20px;
+}
+
+.chart-card {
+  background: #f8fafc;
+  border: 1px solid #e8edf5;
+  border-radius: 12px;
+  padding: 20px;
+}
+
+.chart-card h4 {
+  font-size: 1rem;
+  font-weight: 600;
+  color: #2f3b4e;
+  margin-bottom: 16px;
+}
+
+/* Tables Section */
+.tables-section {
   margin-top: 32px;
 }
-.analytics-table-scroll {
-  max-height: 320px;
-  overflow: auto;
+
+.tables-section h3 {
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: #2f3b4e;
+  margin-bottom: 20px;
 }
-.analytics-table {
+
+.table-card {
+  background: #f8fafc;
+  border: 1px solid #e8edf5;
+  border-radius: 12px;
+  padding: 20px;
+  margin-bottom: 20px;
+}
+
+.table-card h4 {
+  font-size: 1rem;
+  font-weight: 600;
+  color: #2f3b4e;
+  margin-bottom: 16px;
+}
+
+.table-container {
+  overflow-x: auto;
+}
+
+.table-container.scrollable {
+  max-height: 400px;
+  overflow-y: auto;
+}
+
+.data-table {
   width: 100%;
   border-collapse: collapse;
-  font-size: 0.98rem;
-  margin-top: 8px;
+  font-size: 0.9rem;
 }
-.analytics-table th, .analytics-table td {
-  border: 1px solid #ececec;
-  padding: 6px 10px;
+
+.data-table th, .data-table td {
+  border: 1px solid #e8edf5;
+  padding: 12px;
   text-align: left;
 }
-.analytics-table th {
-  background: var(--logo-hover);
-  color: var(--logo-text);
+
+.data-table th {
+  background: #f1f4f9;
+  color: #2f3b4e;
   font-weight: 600;
+  font-size: 0.85rem;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
 }
-.status-legend { display:flex; gap:16px; align-items:center; margin: 8px 0 6px 0; flex-wrap:wrap; }
-.legend-item { display:flex; align-items:center; gap:8px; color:#586780; }
-.status-badge { padding: 4px 10px; border-radius: 999px; font-weight: 700; font-size: 0.8rem; }
-.status-badge.ringan { background: #e9f7ef; color: #1d7a49; border: 1px solid #c6ebd5; }
-.status-badge.sedang { background: #fff7e6; color: #a15c00; border: 1px solid #ffe0a3; }
-.status-badge.ramai  { background: #eaf3ff; color: #0b5ed7; border: 1px solid #bcd8ff; }
-.status-badge.padat  { background: #fff0f0; color: #b12b2b; border: 1px solid #ffd0d0; }
-.status-text { margin-left: 8px; font-weight: 600; color:#3a4a62; text-transform: capitalize; }
+
+.data-table tbody tr:hover {
+  background: #f8fafc;
+}
+
+/* Badges */
+.rank-badge {
+  background: #e3f2fd;
+  color: #1976d2;
+  padding: 4px 8px;
+  border-radius: 12px;
+  font-size: 0.8rem;
+  font-weight: 700;
+}
+
+.spike-badge {
+  background: #fff3e0;
+  color: #f57c00;
+  padding: 4px 8px;
+  border-radius: 12px;
+  font-size: 0.8rem;
+  font-weight: 700;
+}
+
+.status-legend { 
+  display: flex; 
+  gap: 16px; 
+  align-items: center; 
+  margin: 0 0 16px 0; 
+  flex-wrap: wrap; 
+}
+
+.legend-item { 
+  display: flex; 
+  align-items: center; 
+  gap: 8px; 
+  color: #6a7890; 
+  font-size: 0.85rem;
+}
+
+.status-badge { 
+  padding: 4px 8px; 
+  border-radius: 12px; 
+  font-weight: 700; 
+  font-size: 0.75rem; 
+}
+
+.status-badge.ringan { 
+  background: #e9f7ef; 
+  color: #1d7a49; 
+  border: 1px solid #c6ebd5; 
+}
+
+.status-badge.sedang { 
+  background: #fff7e6; 
+  color: #a15c00; 
+  border: 1px solid #ffe0a3; 
+}
+
+.status-badge.ramai { 
+  background: #eaf3ff; 
+  color: #0b5ed7; 
+  border: 1px solid #bcd8ff; 
+}
+
+.status-badge.padat { 
+  background: #fff0f0; 
+  color: #b12b2b; 
+  border: 1px solid #ffd0d0; 
+}
+
+.status-text { 
+  margin-left: 8px; 
+  font-weight: 600; 
+  color: #2f3b4e; 
+  text-transform: capitalize; 
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+  .summary-cards {
+    grid-template-columns: repeat(2, 1fr);
+  }
+  
+  .charts-grid {
+    grid-template-columns: 1fr;
+  }
+  
+  .stats-grid {
+    grid-template-columns: 1fr;
+  }
+}
 </style> 

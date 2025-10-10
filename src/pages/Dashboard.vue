@@ -326,6 +326,68 @@
           <div v-else class="card" style="text-align:center; padding:28px">Belum ada data. Upload dokumen untuk memulai.</div>
         </div>
 
+        <!-- Crowd Monitoring Section -->
+        <div v-if="activeServices.includes('crowd-monitoring')" class="service-section">
+          <div class="section-header">
+            <div class="section-title">
+              <h2>Crowd Monitoring</h2>
+              <div class="section-subtitle">Real-time crowd density analysis • {{ crowdData.length }} lokasi aktif</div>
+            </div>
+            <div class="section-actions">
+              <button class="btn-outline" @click="refreshCrowdData" :disabled="crowdLoading">Refresh</button>
+            </div>
+          </div>
+
+          <div v-if="crowdLoading" class="cards-grid">
+            <div v-for="i in 2" :key="'skl-crowd-'+i" class="card skeleton"></div>
+          </div>
+          <div v-else-if="crowdError" class="error-message">{{ crowdError }}</div>
+          <div v-else class="cards-grid">
+            <div v-for="(crowd, idx) in crowdData" :key="idx" class="card crowd-card">
+              <div class="card-head">
+                <div class="title">{{ crowd.location }}</div>
+                <span class="badge" :class="getCrowdStatusClass(crowd.count)">{{ getCrowdStatus(crowd.count) }}</span>
+              </div>
+              <div class="card-meta">{{ formatDateTime(crowd.timestamp) }}</div>
+              <div class="kv">
+                <div class="row"><span>Jumlah Orang</span><b>{{ crowd.count }} orang</b></div>
+                <div class="row"><span>Level Kepadatan</span><b>{{ getCrowdLevel(crowd.count) }}</b></div>
+              </div>
+              <div class="density-map-container">
+                <div class="density-map-header">
+                  <span>Density Map</span>
+                  <div class="density-map-actions">
+                    <button class="btn-outline" @click="openDensityMapFullscreen(crowd)" style="font-size: 0.8rem">
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
+                        <path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3" stroke="currentColor" stroke-width="2"/>
+                      </svg>
+                      Fullscreen
+                    </button>
+                    <button class="btn-outline" @click="refreshDensityMap(crowd.location)" :disabled="densityLoading[crowd.location]" style="font-size: 0.8rem">
+                      {{ densityLoading[crowd.location] ? 'Loading...' : 'Refresh' }}
+                    </button>
+                  </div>
+                </div>
+                <div class="density-map">
+                  <img 
+                    v-if="densityMaps[crowd.location]" 
+                    :src="'data:image/png;base64,' + densityMaps[crowd.location]" 
+                    :alt="'Density map for ' + crowd.location"
+                    class="density-image"
+                    @click="openDensityMapFullscreen(crowd)"
+                  />
+                  <div v-else class="no-density-map">
+                    <svg width="48" height="48" viewBox="0 0 24 24" fill="none">
+                      <path d="M21 19V5c0-1.1-.9-2-2-2H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2zM8.5 13.5l2.5 3.01L14.5 12l4.5 6H5l3.5-4.5z" stroke="currentColor" stroke-width="2"/>
+                    </svg>
+                    <span>Density map tidak tersedia</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
         <!-- Analytics Section -->
         <div v-if="activeServices.includes('analytics')" class="service-section">
         <Analytics />
@@ -638,6 +700,65 @@
         </div>
       </div>
     </div>
+
+    <!-- Density Map Fullscreen Modal -->
+    <div v-if="showDensityMapFullscreen" class="modal fullscreen-modal" @click.self="closeDensityMapFullscreen">
+      <div class="modal-content fullscreen-content">
+        <div class="modal-head fullscreen-header">
+          <div class="fullscreen-title">
+            <h2>Density Map - {{ selectedDensityMap?.location }}</h2>
+            <div class="fullscreen-subtitle">
+              <span class="badge" :class="getCrowdStatusClass(selectedDensityMap?.count)">
+                {{ getCrowdStatus(selectedDensityMap?.count) }}
+              </span>
+              <span>{{ selectedDensityMap?.count }} orang • {{ formatDateTime(selectedDensityMap?.timestamp) }}</span>
+            </div>
+          </div>
+          <div class="fullscreen-actions">
+            <button class="btn-outline" @click="refreshDensityMap(selectedDensityMap?.location)" :disabled="densityLoading[selectedDensityMap?.location]">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
+                <polyline points="23 4 23 10 17 10" stroke="currentColor" stroke-width="2"/>
+                <polyline points="1 20 1 14 7 14" stroke="currentColor" stroke-width="2"/>
+                <path d="M20.49 9A9 9 0 0 0 5.64 5.64L1 10m22 4l-4.64 4.36A9 9 0 0 1 3.51 15" stroke="currentColor" stroke-width="2"/>
+              </svg>
+              {{ densityLoading[selectedDensityMap?.location] ? 'Loading...' : 'Refresh' }}
+            </button>
+            <button class="btn-outline" @click="closeDensityMapFullscreen">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
+                <path d="M18 6L6 18M6 6l12 12" stroke="currentColor" stroke-width="2"/>
+              </svg>
+              Tutup
+            </button>
+          </div>
+        </div>
+        <div class="fullscreen-body">
+          <div v-if="densityMaps[selectedDensityMap?.location]" class="fullscreen-density-map">
+            <img 
+              :src="'data:image/png;base64,' + densityMaps[selectedDensityMap?.location]" 
+              :alt="'Density map for ' + selectedDensityMap?.location"
+              class="fullscreen-density-image"
+            />
+          </div>
+          <div v-else class="fullscreen-no-density">
+            <div class="no-density-content">
+              <svg width="80" height="80" viewBox="0 0 24 24" fill="none">
+                <path d="M21 19V5c0-1.1-.9-2-2-2H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2zM8.5 13.5l2.5 3.01L14.5 12l4.5 6H5l3.5-4.5z" stroke="currentColor" stroke-width="2"/>
+              </svg>
+              <h3>Density Map Tidak Tersedia</h3>
+              <p>Density map untuk lokasi ini belum tersedia atau sedang dalam proses pembuatan.</p>
+              <button class="btn-primary" @click="refreshDensityMap(selectedDensityMap?.location)" :disabled="densityLoading[selectedDensityMap?.location]">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
+                  <polyline points="23 4 23 10 17 10" stroke="currentColor" stroke-width="2"/>
+                  <polyline points="1 20 1 14 7 14" stroke="currentColor" stroke-width="2"/>
+                  <path d="M20.49 9A9 9 0 0 0 5.64 5.64L1 10m22 4l-4.64 4.36A9 9 0 0 1 3.51 15" stroke="currentColor" stroke-width="2"/>
+                </svg>
+                Coba Lagi
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
   </div>
 </template>
 
@@ -648,7 +769,7 @@ import logo from '../assets/images/logo.png'
 import { useRouter } from 'vue-router'
 // import MobilityMap from '../components/MobilityMap.vue'
 import Analytics from '../components/Analytics.vue'
-import { fetchPintuAirXml, fetchRtTerdampak, fetchMobilityData, fetchUsers, fetchOcrResults, uploadOcrFile, deleteOcrResult, fetchReports, submitReport, deleteReport, updateReportStatus as updateReportStatusAPI } from '../controller/dashboardcontroller.js'
+import { fetchPintuAirXml, fetchRtTerdampak, fetchMobilityData, fetchUsers, fetchOcrResults, uploadOcrFile, deleteOcrResult, fetchReports, submitReport, deleteReport, updateReportStatus as updateReportStatusAPI, fetchCrowdData, fetchDensityMap } from '../controller/dashboardcontroller.js'
 import { useAuth } from '../composables/useAuth.js'
 
 // Import Leaflet
@@ -703,6 +824,15 @@ const searchTimeout = ref(null)
 const showReportDetail = ref(false)
 const showStatusModal = ref(false)
 const selectedReport = ref(null)
+
+// Crowd monitoring variables
+const crowdLoading = ref(true)
+const crowdError = ref('')
+const crowdData = ref([])
+const densityMaps = ref({})
+const densityLoading = ref({})
+const showDensityMapFullscreen = ref(false)
+const selectedDensityMap = ref(null)
 const statusOptions = ref([
   {
     value: 'dilaporkan',
@@ -744,7 +874,7 @@ const reportForm = ref({
 
 // Sidebar and service management
 const sidebarCollapsed = ref(false)
-const activeServices = ref(['pintu-air', 'rt-terdampak', 'mobility', 'reports', 'ocr', 'analytics'])
+const activeServices = ref(['pintu-air', 'rt-terdampak', 'mobility', 'reports', 'ocr', 'crowd-monitoring', 'analytics'])
 const services = ref([
   {
     id: 'pintu-air',
@@ -773,6 +903,12 @@ const services = ref([
   {
     id: 'ocr',
     name: 'OCR Laporan',
+    icon: 'svg',
+    count: 0
+  },
+  {
+    id: 'crowd-monitoring',
+    name: 'Crowd Monitoring',
     icon: 'svg',
     count: 0
   },
@@ -884,6 +1020,28 @@ onMounted(() => {
       console.error('Reports fetch error:', e)
     } finally {
       reportsLoading.value = false
+    }
+
+    // load crowd monitoring data
+    try {
+      console.log('Loading crowd monitoring data...')
+      const crowd = await fetchCrowdData()
+      if (crowd.error) {
+        crowdError.value = crowd.error
+        console.error('Crowd error:', crowd.error)
+      } else {
+        crowdData.value = Object.values(crowd.data || {})
+        console.log('Crowd data loaded:', crowdData.value.length, 'locations')
+        // Load density maps for each location
+        for (const location of crowdData.value) {
+          await loadDensityMap(location.location)
+        }
+      }
+    } catch (e) {
+      crowdError.value = String(e)
+      console.error('Crowd fetch error:', e)
+    } finally {
+      crowdLoading.value = false
     }
     
     // Update service counts after loading data
@@ -1486,6 +1644,9 @@ async function refreshAll() {
   if (activeServices.value.includes('ocr')) {
     await refreshOcr()
   }
+  if (activeServices.value.includes('crowd-monitoring')) {
+    await refreshCrowdData()
+  }
 }
 
 // Update service counts
@@ -1495,7 +1656,8 @@ function updateServiceCounts() {
   services.value[2].count = mobilityData.value.length
   services.value[3].count = reports.value.length
   services.value[4].count = ocrResults.value.length
-  services.value[5].count = 0 // Analytics doesn't have count
+  services.value[5].count = crowdData.value.length
+  services.value[6].count = 0 // Analytics doesn't have count
 }
 
 // Pintu Air Functions
@@ -1959,6 +2121,88 @@ function badgeForStatus(status) {
     'ditolak': 'badge siaga'
   }
   return classes[status] || 'badge normal'
+}
+
+// Crowd Monitoring Functions
+async function refreshCrowdData() {
+  crowdLoading.value = true
+  crowdError.value = ''
+  try {
+    const crowd = await fetchCrowdData()
+    if (crowd.error) {
+      crowdError.value = crowd.error
+    } else {
+      crowdData.value = Object.entries(crowd.data || {}).map(([location, data]) => ({
+        location,
+        ...data
+      }))
+      // Load density maps for each location
+      for (const locationData of crowdData.value) {
+        await loadDensityMap(locationData.location)
+      }
+    }
+  } catch (e) {
+    crowdError.value = String(e)
+  } finally {
+    crowdLoading.value = false
+    updateServiceCounts()
+  }
+}
+
+async function loadDensityMap(location) {
+  densityLoading.value[location] = true
+  try {
+    const result = await fetchDensityMap(location)
+    if (result.error) {
+      console.error(`Error loading density map for ${location}:`, result.error)
+    } else {
+      densityMaps.value[location] = result.data.density_map_base64
+    }
+  } catch (e) {
+    console.error(`Error loading density map for ${location}:`, e)
+  } finally {
+    densityLoading.value[location] = false
+  }
+}
+
+async function refreshDensityMap(location) {
+  await loadDensityMap(location)
+}
+
+function getCrowdStatus(count) {
+  if (count <= 100) return 'Ringan'
+  if (count <= 200) return 'Sedang'
+  if (count <= 400) return 'Ramai'
+  return 'Padat'
+}
+
+function getCrowdStatusClass(count) {
+  if (count <= 100) return 'badge normal'
+  if (count <= 200) return 'badge waspada'
+  if (count <= 400) return 'badge siaga'
+  return 'badge siaga'
+}
+
+function getCrowdLevel(count) {
+  if (count <= 100) return 'Level 1'
+  if (count <= 200) return 'Level 2'
+  if (count <= 400) return 'Level 3'
+  return 'Level 4'
+}
+
+// Density Map Fullscreen Functions
+function openDensityMapFullscreen(crowd) {
+  selectedDensityMap.value = crowd
+  showDensityMapFullscreen.value = true
+  // Prevent body scroll when modal is open
+  document.body.style.overflow = 'hidden'
+}
+
+function closeDensityMapFullscreen() {
+  showDensityMapFullscreen.value = false
+  selectedDensityMap.value = null
+  // Restore body scroll
+  document.body.style.overflow = 'auto'
 }
 
 </script>
@@ -2841,6 +3085,191 @@ function badgeForStatus(status) {
   line-height: 1.3;
 }
 
+/* Crowd Monitoring Styles */
+.crowd-card {
+  position: relative;
+}
+
+.density-map-container {
+  margin-top: 16px;
+  border-top: 1px solid #e8edf5;
+  padding-top: 16px;
+}
+
+.density-map-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12px;
+}
+
+.density-map-header span {
+  font-weight: 600;
+  color: #2f3b4e;
+  font-size: 0.9rem;
+}
+
+.density-map-actions {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.density-map {
+  background: #f8fafc;
+  border: 1px solid #e8edf5;
+  border-radius: 8px;
+  padding: 12px;
+  min-height: 120px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.density-image {
+  max-width: 100%;
+  max-height: 200px;
+  border-radius: 6px;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.density-image:hover {
+  transform: scale(1.02);
+  box-shadow: 0 4px 16px rgba(0,0,0,0.15);
+}
+
+.no-density-map {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  color: #6a7890;
+  text-align: center;
+  padding: 20px;
+}
+
+.no-density-map svg {
+  margin-bottom: 8px;
+  opacity: 0.6;
+}
+
+.no-density-map span {
+  font-size: 0.85rem;
+}
+
+/* Fullscreen Modal Styles */
+.fullscreen-modal {
+  z-index: 2000;
+  background: rgba(0, 0, 0, 0.8);
+  backdrop-filter: blur(4px);
+}
+
+.fullscreen-content {
+  width: 95vw;
+  height: 95vh;
+  max-width: none;
+  max-height: none;
+  padding: 0;
+  border-radius: 16px;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.fullscreen-header {
+  background: #fff;
+  border-bottom: 1px solid #e8edf5;
+  padding: 20px 24px;
+  margin: 0;
+  position: relative;
+  z-index: 2001;
+  flex-shrink: 0;
+}
+
+.fullscreen-title h2 {
+  margin: 0 0 8px 0;
+  color: #2f3b4e;
+  font-size: 1.5rem;
+  font-weight: 700;
+}
+
+.fullscreen-subtitle {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  color: #6a7890;
+  font-size: 0.9rem;
+}
+
+.fullscreen-actions {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+}
+
+.fullscreen-body {
+  flex: 1;
+  background: #f8fafc;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  position: relative;
+}
+
+.fullscreen-density-map {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+}
+
+.fullscreen-density-image {
+  max-width: 100%;
+  max-height: 100%;
+  border-radius: 12px;
+  box-shadow: 0 8px 32px rgba(0,0,0,0.2);
+  object-fit: contain;
+  transition: all 0.3s ease;
+}
+
+.fullscreen-no-density {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 40px;
+}
+
+.no-density-content {
+  text-align: center;
+  max-width: 400px;
+}
+
+.no-density-content svg {
+  color: #6a7890;
+  margin-bottom: 16px;
+  opacity: 0.6;
+}
+
+.no-density-content h3 {
+  margin: 0 0 12px 0;
+  color: #2f3b4e;
+  font-size: 1.3rem;
+  font-weight: 600;
+}
+
+.no-density-content p {
+  margin: 0 0 24px 0;
+  color: #6a7890;
+  line-height: 1.5;
+}
+
 /* Responsive */
 @media (max-width: 768px) {
   .sidebar {
@@ -2861,6 +3290,42 @@ function badgeForStatus(status) {
   
   .cards-grid {
     grid-template-columns: 1fr;
+  }
+  
+  .fullscreen-content {
+    width: 100vw;
+    height: 100vh;
+    border-radius: 0;
+  }
+  
+  .fullscreen-header {
+    padding: 16px 20px;
+  }
+  
+  .fullscreen-title h2 {
+    font-size: 1.2rem;
+  }
+  
+  .fullscreen-actions {
+    flex-direction: column;
+    gap: 8px;
+  }
+  
+  .fullscreen-actions .btn-outline {
+    font-size: 0.8rem;
+    padding: 6px 10px;
+  }
+  
+  .fullscreen-density-map {
+    padding: 16px;
+  }
+  
+  .fullscreen-no-density {
+    padding: 20px;
+  }
+  
+  .no-density-content h3 {
+    font-size: 1.1rem;
   }
 }
 </style>

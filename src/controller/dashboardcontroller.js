@@ -9,6 +9,28 @@ export async function fetchCrowdHistory() {
   }
 }
 
+export async function fetchCrowdData() {
+  try {
+    const response = await fetch('http://127.0.0.1:8001/crowd');
+    if (!response.ok) throw new Error('Gagal mengambil data crowd');
+    const data = await response.json();
+    return { data };
+  } catch (error) {
+    return { error: error.message };
+  }
+}
+
+export async function fetchDensityMap(location) {
+  try {
+    const response = await fetch(`http://127.0.0.1:8001/crowd/density-map/${encodeURIComponent(location)}`);
+    if (!response.ok) throw new Error('Gagal mengambil density map');
+    const data = await response.json();
+    return { data };
+  } catch (error) {
+    return { error: error.message };
+  }
+}
+
 export async function fetchPintuAirXml() {
   try {
     const response = await fetch('http://127.0.0.1:8002/pintu-air/xml');
